@@ -1,174 +1,142 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { fetchProducts } from '../api';
+import { MdEdit, MdDelete, MdCheckCircle, MdPendingActions } from 'react-icons/md';
+import GrievanceForm from '../components/GrievanceForm';
 import { useNavigate } from 'react-router-dom';
+import { API_URL } from '../config';
+import './Dashboard.css';
 
-const API_URL = 'http://localhost:5000/api';
+const Dashboard = ({ setAuth }) => {
+  const [grievances, setGrievances] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [editingId, setEditingId] = useState(null);
+  
+  const navigate = useNavigate();
+  const token = localStorage.getItem('token');
+  const user = JSON.parse(localStorage.getItem('user'));
 
-const Dashboard = () => {
-    const [student, setStudent] = useState(null);
-    const [pwdData, setPwdData] = useState({ oldPassword: '', newPassword: '' });
-    const [courseData, setCourseData] = useState('');
-    const [message, setMessage] = useState('');
-    const [error, setError] = useState('');
-    const [products, setProducts] = useState([]);
-    const navigate = useNavigate();
+  useEffect(() => {
+    if (!token) {
+      setAuth(false);
+      navigate('/login');
+    } else {
+      fetchGrievances();
+    }
+  }, [token, navigate]);
 
-    const token = localStorage.getItem('token');
+  const fetchGrievances = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/grievances`, {
+        headers: { 'x-auth-token': token }
+      });
+      setGrievances(res.data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
-    useEffect(() => {
-        if (!token) {
-            navigate('/login');
-            return;
-        }
+  const handleSearch = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await axios.get(`${API_URL}/grievances/search?title=${searchQuery}`, {
+        headers: { 'x-auth-token': token }
+      });
+      setGrievances(res.data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
-        const fetchStudentData = async () => {
-            try {
-                const res = await axios.get(`${API_URL}/me`, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                setStudent(res.data);
-                setCourseData(res.data.course);
-            } catch (err) {
-                console.error(err);
-                if (err.response?.status === 401) {
-                    localStorage.removeItem('token');
-                    navigate('/login');
-                }
-            }
-        };
+  const handleClearSearch = () => {
+    setSearchQuery('');
+    fetchGrievances();
+  };
 
-        fetchStudentData();
-    }, [token, navigate]);
+  const handleDelete = async (id) => {
+    if (window.confirm('Are you sure you want to delete this grievance?')) {
+      try {
+        await axios.delete(`${API_URL}/grievances/${id}`, {
+          headers: { 'x-auth-token': token }
+        });
+        fetchGrievances();
+      } catch (err) {
+        console.error(err);
+      }
+    }
+  };
 
-    useEffect(() => {
-        // Call the backend API for products when the component mounts
-        const getProducts = async () => {
-            try {
-                const response = await fetchProducts();
-                setProducts(response.data);
-            } catch (err) {
-                console.error("Error connecting to backend products API:", err);
-            }
-        };
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setAuth(false);
+    navigate('/login');
+  };
 
-        getProducts();
-    }, []);
-
-    const handleLogout = () => {
-        localStorage.removeItem('token');
-        navigate('/login');
-    };
-
-    const handlePasswordUpdate = async e => {
-        e.preventDefault();
-        setMessage('');
-        setError('');
-        try {
-            const res = await axios.put(`${API_URL}/update-password`, pwdData, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            setMessage(res.data.msg);
-            setPwdData({ oldPassword: '', newPassword: '' });
-        } catch (err) {
-            setError(err.response?.data?.msg || 'Error updating password');
-        }
-    };
-
-    const handleCourseUpdate = async e => {
-        e.preventDefault();
-        setMessage('');
-        setError('');
-        try {
-            const res = await axios.put(`${API_URL}/update-course`, { course: courseData }, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            setMessage(res.data.msg);
-            setStudent({ ...student, course: courseData });
-        } catch (err) {
-            setError(err.response?.data?.msg || 'Error updating course');
-        }
-    };
-
-    if (!student) return <div className="text-center mt-5">Loading...</div>;
-
-    return (
-        <div className="container mt-5 text-start">
-            <div className="d-flex justify-content-between align-items-center mb-4">
-                <h2>Student Dashboard</h2>
-                <button className="btn btn-danger" onClick={handleLogout}>Logout</button>
-            </div>
-
-            {message && <div className="alert alert-success">{message}</div>}
-            {error && <div className="alert alert-danger">{error}</div>}
-
-            <div className="card shadow mb-4">
-                <div className="card-body">
-                    <h4>Student Details</h4>
-                    <p><strong>Name:</strong> {student.name}</p>
-                    <p><strong>Email:</strong> {student.email}</p>
-                    <p><strong>Enrolled Course:</strong> {student.course}</p>
-                </div>
-            </div>
-
-            <div className="row">
-                <div className="col-md-6 mb-4">
-                    <div className="card shadow h-100">
-                        <div className="card-body">
-                            <h4>Update Password</h4>
-                            <form onSubmit={handlePasswordUpdate}>
-                                <div className="mb-3">
-                                    <label>Old Password</label>
-                                    <input type="password" value={pwdData.oldPassword} onChange={e => setPwdData({ ...pwdData, oldPassword: e.target.value })} className="form-control" required />
-                                </div>
-                                <div className="mb-3">
-                                    <label>New Password</label>
-                                    <input type="password" value={pwdData.newPassword} onChange={e => setPwdData({ ...pwdData, newPassword: e.target.value })} className="form-control" required />
-                                </div>
-                                <button type="submit" className="btn btn-primary w-100">Update Password</button>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="col-md-6 mb-4">
-                    <div className="card shadow h-100">
-                        <div className="card-body">
-                            <h4>Change Course</h4>
-                            <form onSubmit={handleCourseUpdate}>
-                                <div className="mb-3">
-                                    <label>New Course</label>
-                                    <input type="text" value={courseData} onChange={e => setCourseData(e.target.value)} className="form-control" required />
-                                </div>
-                                <button type="submit" className="btn btn-warning w-100">Update Course</button>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Injected Product List from your Backend */}
-            <div className="card shadow mb-4">
-                 <div className="card-body">
-                     <h4>My Products Directory (From Backend Integration)</h4>
-                     {products.length === 0 ? (
-                         <p className="text-muted">No products found or still loading...</p>
-                     ) : (
-                         <div className="list-group list-group-flush">
-                             {products.map((item) => (
-                                 <div className="list-group-item d-flex justify-content-between align-items-center" key={item._id}>
-                                     <div>
-                                         <h6 className="mb-0">{item.name}</h6>
-                                     </div>
-                                     <span className="badge bg-primary rounded-pill">${item.price}</span>
-                                 </div>
-                             ))}
-                         </div>
-                     )}
-                 </div>
-            </div>
+  return (
+    <div className="dashboard-layout">
+      <header className="dashboard-header">
+        <div className="header-brand">Student Portal</div>
+        <div className="header-user">
+          <span>Welcome, {user?.name}</span>
+          <button className="btn secondary-btn" onClick={handleLogout}>Logout</button>
         </div>
-    );
+      </header>
+
+      <main className="dashboard-main">
+        <div className="dashboard-sidebar">
+          <GrievanceForm 
+            fetchGrievances={fetchGrievances} 
+            editingId={editingId} 
+            setEditingId={setEditingId} 
+            token={token} 
+          />
+        </div>
+
+        <div className="dashboard-content">
+          <div className="content-header">
+            <h2>Your Grievances</h2>
+            <form onSubmit={handleSearch} className="search-bar">
+              <input 
+                type="text" 
+                placeholder="Search by title..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              <button type="submit" className="btn primary-btn">Search</button>
+              {searchQuery && <button type="button" className="btn default-btn" onClick={handleClearSearch}>Clear</button>}
+            </form>
+          </div>
+
+          <div className="grievance-list">
+             {grievances.length === 0 ? (
+               <div className="no-data">No grievances found.</div>
+             ) : (
+               grievances.map(item => (
+                 <div className="grievance-card" key={item._id}>
+                   <div className="card-header">
+                     <h3>{item.title}</h3>
+                     <span className={`status-badge ${item.status.toLowerCase()}`}>
+                       {item.status === 'Resolved' ? <MdCheckCircle /> : <MdPendingActions />}
+                       {item.status}
+                     </span>
+                   </div>
+                   <p className="description">{item.description}</p>
+                   <div className="card-footer">
+                     <span className="category-label">{item.category}</span>
+                     <span className="date-label">{new Date(item.date).toLocaleDateString()}</span>
+                     <div className="card-actions">
+                       <button className="icon-btn edit-btn" onClick={() => setEditingId(item._id)}><MdEdit /> Edit</button>
+                       <button className="icon-btn delete-btn" onClick={() => handleDelete(item._id)}><MdDelete /> Delete</button>
+                     </div>
+                   </div>
+                 </div>
+               ))
+             )}
+          </div>
+        </div>
+      </main>
+    </div>
+  );
 };
 
 export default Dashboard;

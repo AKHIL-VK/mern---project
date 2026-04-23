@@ -9,20 +9,19 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// Connect to MongoDB
-connectDB();
+// Database connection bypassed because we are using in-memory arrays!
+// connectDB();
 
 // Routes
-const productRoutes = require('./routes/productRoutes');
-const studentRoutes = require('./routes/mse 2');
+const authRoutes = require('./routes/authRoutes');
+const grievanceRoutes = require('./routes/grievanceRoutes');
 
-// Basic route
 app.get('/', (req, res) => {
-    res.send('API is running...');
+    res.send('Student Grievance API is running...');
 });
 
-app.use('/api/products', productRoutes);
-app.use('/api', studentRoutes);
+app.use('/api', authRoutes);
+app.use('/api/grievances', grievanceRoutes);
 
 const PORT = process.env.PORT || 5000;
 
